@@ -1,100 +1,166 @@
-from typing import NoReturn
-import re
-from pymorphy3 import MorphAnalyzer
-from wordcloud import WordCloud
-from collections import Counter
+import tkinter as tk
+from tkinter import colorchooser
+from tkinter import messagebox
+from tkinter import filedialog
+from math import ceil
+from analyser import TextAnalyser
 
 
-class TextAnalyser:
-    def __init__(
-                self,
-                source_file=None,
-                destination_file="wordcloud.png",
-                parts_of_speech=["NOUN"],
-                words_ammount=100,
-                wc_width=800,
-                wc_height=600,
-                wc_background="black",
-                wc_margin=10
-    ) -> None:
-        """ вызывает цепочку методов """
-        if source_file is None:
-            raise Exception("Не указан файл для анализа!")
-        self.source_file = source_file
-        self.destination_file = destination_file
-        self.read_file()
-        self.check_empty_file()
-        self.make_words()
-        self.make_pos_words(parts_of_speech)
-        self.make_top_words(words_ammount)
-        self.make_wordcloud(wc_width, wc_height, wc_background, wc_margin)
-        self.save_to_file()
-        self.print_results()
+def select_file(*events):
+    '''
+    TODO:
+        активировать кнопку создания вордклауда
+        только если все виджеты получили данные от пользователя
+    '''
+    file_path = filedialog.askopenfilename(
+        initialdir="./",
+        title="Выбирите файл с текстом",
+        filetypes=files,
+        defaultextension=files,
+    )
 
-    def read_file(self) -> None | NoReturn:
-        """ пытается открыть файл и считать его в строку """
-        try:
-            with open(self.source_file, "r", encoding="UTF-8") as file:
-                self.file = file
-                self.text = self.file.read()
-        except FileNotFoundError:
-            raise Exception(f"Файл {self.source_file} не найден!")
-
-    def check_empty_file(self) -> None | NoReturn:
-        """ проверяет пустой ли файл """
-        if not self.text:
-            raise RuntimeError(f"Файл {self.source_file} пуст! Попробуйте другой файл.")
-
-    def make_words(self) -> None:
-        """ делает буквы текста строчными, создает список слов """
-        self.text = self.text.lower()
-        self.words = re.findall(r"\b[а-яё-]+\b", self.text)
-
-    def make_pos_words(self, parts_of_speech) -> None:
-        """ делает список из подходящих частей речи """
-        morph = MorphAnalyzer()
-        self.pos_words = []
-        for word in self.words:
-            parses = morph.parse(word)
-            parse = parses[0]
-            if any(pos in parse.tag for pos in parts_of_speech):
-                self.pos_words.append(parse.normal_form)
-        if not self.pos_words:
-            raise RuntimeError("В тексте не нашлось подходящих частей речи.")
-
-    def make_top_words(self, words_ammount):
-        """
-        создает словарь вида:
-        слово: количество упоминаний
-        """
-        self.pos_words
-        counter = Counter(self.pos_words)
-        self.counted_words = dict(counter.most_common(words_ammount))
-
-    def make_wordcloud(self, wc_width, wc_height, wc_background, wc_margin) -> None:
-        """ создает объект облака слов """
-        self.wordcloud = WordCloud(
-            width=wc_width,
-            height=wc_height,
-            background_color=wc_background,
-            margin=wc_margin,
-            scale=2
-        ).generate_from_frequencies(self.counted_words)
-
-    def save_to_file(self) -> None:
-        """ сохраняет объект облака слов в файл-изображение """
-        try:
-            self.wordcloud.to_file(self.destination_file)
-        except:
-            raise RuntimeError(
-                "Не удалось сохранить изображение облака слов в файл!"
-            )
-
-    def print_results(self) -> None:
-        """ выводит отчет на экран """
-        print(f"В этом тексте {len(self.words)} слов")
-        print(f"Подходящих частей речи: {len(self.pos_words)}")
-        print(f"Изображение сохранено в файл {self.destination_file}")
+    if file_path:
+        file_path_lbl['text'] = file_path
 
 
-TextAnalyser(source_file="text.txt", parts_of_speech=["NOUN", "VERB"])
+def select_color(*events):
+    color = colorchooser.askcolor()[1]
+    wc_background_cnvs.configure(bg=color)
+
+
+def run(*args):
+    '''
+        TODO:
+            виджеты:
+                destination_file
+                wc_background
+            выбор пути для картинки при вызове этой функции
+            проверка на пустые виджеты, диалоги ошибок
+
+        FIXME:
+            картинка в два раза больше, чем указанные параметры!
+    '''
+    TextAnalyser(
+        source_file=file_path_lbl['text'],
+        words_ammount=int(words_ammount_entry.get()),
+        wc_width=int(wc_width_entry.get()),
+        wc_height=int(wc_height_entry.get()),
+        wc_margin=int(wc_margin_entry.get()),
+        wc_background=wc_background_cnvs['background'],
+        parts_of_speech=[s.get() for s in pos_vars if s.get()],
+    )
+
+
+files = [
+    ('Text Document', '*.txt')
+]
+
+window = tk.Tk()
+window.title('Облако слов из текстового файла')
+
+# source file selection
+file_path_btn = tk.Button(window, text='выбрать файл', command=select_file)
+file_path_lbl = tk.Label(window, text='Выбирите исходный файл с текстом')
+file_path_lbl.bind("<Button-1>", select_file)
+
+# words ammount
+words_ammount_lbl = tk.Label(window, text='количество слов на картинке:')
+words_ammount_entry = tk.Entry(window)  # TODO: только инты
+
+# wordcloud image size
+wc_width_lbl = tk.Label(window, text='ширина картинки в пискелях:')
+wc_width_entry = tk.Entry(window)
+wc_height_lbl = tk.Label(window, text='высота картинки в пискелях:')
+wc_height_entry = tk.Entry(window)
+wc_margin_lbl = tk.Label(window, text='отступ картинки от края в пискелях:')
+wc_margin_entry = tk.Entry(window)
+
+# wc background color selection
+wc_background_lbl = tk.Label(window, text='выбирите цвет фона картинки:')
+wc_background_cnvs = tk.Canvas(width=100, height=100)
+wc_background_cnvs.configure(bg='#000000')
+wc_background_cnvs.bind("<Button-1>", select_color)
+
+# parts of speech selection
+pos_lbl = tk.Label(window, text='части речи:')
+pos_texts = [
+    'имя существительное',
+    'имя прилагательное (полное)',
+    'имя прилагательное (краткое)',
+    'компаратив',
+    'глагол (личная форма)',
+    'глагол (инфинитив)',
+    'причастие (полное)',
+    'причастие (краткое)',
+    'деепричастие',
+    'числительное',
+    'наречие',
+    'местоимение-существительное',
+    'предикатив',
+    'предлог',
+    'союз',
+    'частица',
+    'междометие',
+]
+pos_values = [
+    'NOUN',
+    'ADJF',
+    'ADJS',
+    'COMP',
+    'VERB',
+    'INFN',
+    'PRTF',
+    'PRTS',
+    'GRND',
+    'NUMR',
+    'ADVB',
+    'NPRO',
+    'PRED',
+    'PREP',
+    'CONJ',
+    'PRCL',
+    'INTJ',
+]
+
+pos_chckbtns = []
+pos_vars = [tk.StringVar() for _ in pos_texts]
+
+for i, _ in enumerate(pos_texts):
+    chkbtn = tk.Checkbutton(
+        window,
+        text=pos_texts[i],
+        onvalue=pos_values[i],
+        offvalue='',
+        variable=pos_vars[i],
+    )
+    pos_chckbtns.append(chkbtn)
+
+# start button
+start_btn = tk.Button(window, text='создать облако слов', command=lambda: run())
+
+# widgets placement
+file_path_btn.grid(row=0, column=0, sticky='e', padx=10, pady=10)
+file_path_lbl.grid(row=0, column=1, sticky='w', pady=10)
+words_ammount_lbl.grid(row=1, column=0, sticky='e', padx=10, pady=10)
+words_ammount_entry.grid(row=1, column=1, sticky='w', pady=10)
+wc_width_lbl.grid(row=2, column=0, sticky='e', padx=10, pady=10)
+wc_width_entry.grid(row=2, column=1, sticky='w', pady=10)
+wc_height_lbl.grid(row=3, column=0, sticky='e', padx=10, pady=10)
+wc_height_entry.grid(row=3, column=1, sticky='w', pady=10)
+wc_margin_lbl.grid(row=4, column=0, sticky='e', padx=10, pady=10)
+wc_margin_entry.grid(row=4, column=1, sticky='w', pady=10)
+wc_background_lbl.grid(row=5, column=0, sticky='e', padx=10, pady=10)
+wc_background_cnvs.grid(row=5, column=1, sticky='w', pady=10)
+
+pos_lbl.grid(row=6, columnspan=100)
+start_row = 7
+columns = 5
+rows = ceil(len(pos_chckbtns) / columns)
+for i, chkbtn in enumerate(pos_chckbtns):
+    row = start_row + i // columns
+    column = i % columns
+    chkbtn.grid(row=row, column=column, sticky='w')
+
+start_btn.grid(column=0, columnspan=100, pady=20)
+
+window.mainloop()
